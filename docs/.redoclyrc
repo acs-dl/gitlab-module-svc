@@ -1,0 +1,9 @@
+
+apiTitle:  github.com/acs-dl/gitlab-module-svc
+splitSpec: true
+codeSamples: false
+swaggerUI: true
+travis: true
+repo: github.com/acs-dl/gitlab-module-svc
+oasVersion: 1.0.0
+

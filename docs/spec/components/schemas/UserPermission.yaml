@@ -1,0 +1,55 @@
+allOf:
+  - $ref: "#/components/schemas/UserPermissionKey"
+  - type: object
+    required:
+      - attributes
+    properties:
+      attributes:
+        type: object
+        required:
+          - username
+          - module_id
+          - type
+          - link
+          - path
+          - access_level
+          - deployable
+        properties:
+          username:
+            type: string
+            description: username from gitlab
+            example: "velykodnyi"
+          module_id:
+            type: int64
+            description: user id from gitlab
+            example: 8421495
+          user_id:
+            type: int64
+            description: user id from identity
+            example: 666
+          type:
+            type: string
+            description: type of link for which was given access (group or project)
+            example: "group"
+          link:
+            type: string
+            description: full path to repo for which was given access
+            example: "distributed_lab/acs"
+          path:
+            type: string
+            description: path to repo for which was given access
+            example: "acs"
+          access_level:
+            type: object
+            description: level of success for link (No access(0) - Minimal access(5) - Guest(10) - Reporter(20) -
+              Developer(30) - Maintainer(40) - Owner(50))
+            example: 30
+            $ref: "#/components/schemas/AccessLevel"
+          deployable:
+            type: bool
+            description: indicates whether element have nested object
+            example: true
+          expires_at:
+            type: time.Time
+            description: shows when permission is expired
+            example: "2006-01-02T15:04:05-0700"

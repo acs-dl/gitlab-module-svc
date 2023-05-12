@@ -1,0 +1,8 @@
+in: query
+name: 'filter[link]'
+required: true
+schema:
+  type: string
+  description: >-
+    Filter by link to search.
+  example: "distributed_lab/acs/"

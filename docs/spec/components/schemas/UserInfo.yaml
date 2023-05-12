@@ -1,0 +1,25 @@
+allOf:
+  - $ref: "#/components/schemas/UserKey"
+  - type: object
+    required:
+      - attributes
+    properties:
+      attributes:
+        type: object
+        required:
+          - username
+          - avatar_url
+          - name
+        properties:
+          username:
+            type: string
+            description: username from gitlab
+            example: "mhrynenko"
+          avatar_url:
+            type: string
+            description: url to gitlab avatar
+            example: "https://secure.gravatar.com/avatar/a21e1318f56bd5aebbd22664b9b6df46?s=80&d=identicon"
+          name:
+            type: string
+            description: name from gitlab account
+            example: "Maksym Hrynenko"

@@ -1,0 +1,8 @@
+in: query
+name: 'filter[parentLink]'
+required: true
+schema:
+  type: string
+  description: >-
+    Filter by parent links
+  example: "distributed_lab/acs/"

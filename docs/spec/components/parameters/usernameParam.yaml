@@ -1,0 +1,8 @@
+in: query
+name: 'filter[username]'
+schema:
+  type: string
+  description: >-
+    Filter by username from gitlab. If username param is not specified, permissions for all 
+    users are returned.
+  example: "slandymani"

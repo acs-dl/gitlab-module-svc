@@ -1,0 +1,14 @@
+type: object
+required:
+    - name
+    - value
+properties:
+  name:
+    type: string
+    description: role name to show in FE
+    example: "Admin"
+  value:
+    type: integer
+    format: int64
+    description: role value to use in BE
+    example: 50

@@ -1,0 +1,49 @@
+log:
+  level: debug
+  disable_sentry: true
+
+db:
+  url: "postgres://gitlab:gitlab@localhost:5446/gitlab?sslmode=disable"
+
+amqp:
+  topic: "gitlab"
+  publisher: "amqp://guest:guest@localhost:5672/" #gitlab_publisher
+  subscriber: "amqp://guest:guest@localhost:5672/" #gitlab_receiver
+
+gitlab: #access token for superuser
+  super_token: "..."
+  usual_token: "..."
+
+runners:
+  registrar: 10m
+  worker: 2h
+  receiver: 30s
+  sender: 30s
+
+rate_limit:
+  requests_amount: 1000
+  time_limit: 60s
+
+
+listener:
+  addr: :9001
+
+jwt:
+  secret: SuPeR SeCrEt PhRaSe
+  refresh_life: 6h
+  access_life: 10m5s
+
+registrator:
+  outer_url: "http://localhost:8000/integrations/orchestrator/modules" #endpoint to register MODULE
+  inner_url: "http://localhost:9001/integrations/gitlab" #endpoint to MODULE itself
+  topic: "gitlab" #MODULE topic
+  title: "Gitlab" #MODULE title
+  prefix: "https://gitlab.com"
+  is_module: true
+
+cop:
+  disabled: true
+  endpoint: "http://..."
+  upstream: "http://..."
+  service_name: core
+  service_port: 80
