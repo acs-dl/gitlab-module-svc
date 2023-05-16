@@ -3,8 +3,9 @@ package receiver
 import (
 	"context"
 	"encoding/json"
-	"gitlab.com/distributed_lab/logan/v3"
 	"time"
+
+	"gitlab.com/distributed_lab/logan/v3"
 
 	"github.com/ThreeDotsLabs/watermill-amqp/v2/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -108,9 +109,8 @@ func (r *Receiver) subscribeForTopic(ctx context.Context, topic string) error {
 			err = r.processMessage(msg)
 			if err != nil {
 				r.log.WithError(err).Error("failed to process message ", msg.UUID)
-			} else {
-				msg.Ack()
 			}
+			msg.Ack()
 		}
 	}
 }
