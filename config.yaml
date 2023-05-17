@@ -10,10 +10,6 @@ amqp:
   publisher: "amqp://guest:guest@localhost:5672/" #gitlab_publisher
   subscriber: "amqp://guest:guest@localhost:5672/" #gitlab_receiver
 
-gitlab: #access token for superuser
-  super_token: "..."
-  usual_token: "..."
-
 runners:
   registrar: 10m
   worker: 2h
