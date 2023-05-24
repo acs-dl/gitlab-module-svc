@@ -7,8 +7,14 @@ db:
 
 amqp:
   topic: "gitlab"
+  unverified: "unverified-svc"
+  orchestrator: "orchestrator"
   publisher: "amqp://guest:guest@localhost:5672/" #gitlab_publisher
   subscriber: "amqp://guest:guest@localhost:5672/" #gitlab_receiver
+
+vault:
+  mount_path: "secret"
+  secret_path: "gitlab"
 
 runners:
   registrar: 10m
