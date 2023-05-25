@@ -1,10 +1,7 @@
 package config
 
 import (
-	"encoding/json"
-	"os"
-
-	validation "github.com/go-ozzo/ozzo-validation"
+	knox "gitlab.com/distributed_lab/knox/knox-fork/client/external_kms"
 	"gitlab.com/distributed_lab/logan/v3/errors"
 )
 
@@ -16,26 +13,22 @@ type GitLabCfg struct {
 func (c *config) Gitlab() *GitLabCfg {
 	return c.gitlab.Do(func() interface{} {
 		var cfg GitLabCfg
-		value, ok := os.LookupEnv("gitlab")
-		if !ok {
-			panic(errors.New("no gitlab env variable"))
-		}
-		err := json.Unmarshal([]byte(value), &cfg)
+
+		client := knox.NewKeyManagementClient(c.getter)
+
+		key, err := client.GetKey("super_token", "4697000974761249000")
 		if err != nil {
-			panic(errors.Wrap(err, "failed to figure out gitlab params from env variable"))
+			panic(errors.Wrap(err, "failed to get super token key"))
 		}
 
-		err = cfg.validate()
+		cfg.SuperToken = string(key[:])
+
+		key, err = client.GetKey("usual_token", "1959184036590655200")
 		if err != nil {
-			panic(errors.Wrap(err, "failed to validate gitlab params"))
+			panic(errors.Wrap(err, "failed to get usual token key"))
 		}
+		cfg.UsualToken = string(key[:])
+
 		return &cfg
 	}).(*GitLabCfg)
-}
-
-func (g *GitLabCfg) validate() error {
-	return validation.Errors{
-		"super_token": validation.Validate(g.SuperToken, validation.Required),
-		"user_token":  validation.Validate(g.UsualToken, validation.Required),
-	}.Filter()
 }
