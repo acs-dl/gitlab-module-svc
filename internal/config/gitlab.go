@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 
 	validation "github.com/go-ozzo/ozzo-validation"
@@ -15,22 +14,32 @@ type GitLabCfg struct {
 
 func (c *config) Gitlab() *GitLabCfg {
 	return c.gitlab.Do(func() interface{} {
-		var cfg GitLabCfg
-		value, ok := os.LookupEnv("gitlab")
-		if !ok {
-			panic(errors.New("no gitlab env variable"))
-		}
-		err := json.Unmarshal([]byte(value), &cfg)
+		cfg := lookupConfigEnv()
+
+		err := cfg.validate()
 		if err != nil {
-			panic(errors.Wrap(err, "failed to figure out gitlab params from env variable"))
+			panic(errors.Wrap(err, "failed to get usual token key"))
 		}
 
-		err = cfg.validate()
-		if err != nil {
-			panic(errors.Wrap(err, "failed to validate gitlab params"))
-		}
-		return &cfg
+		return cfg
 	}).(*GitLabCfg)
+}
+
+func lookupConfigEnv() *GitLabCfg {
+	superToken, ok := os.LookupEnv("super_token")
+	if !ok {
+		panic(errors.New("no super_token env variable"))
+	}
+
+	usualToken, ok := os.LookupEnv("usual_token")
+	if !ok {
+		panic(errors.New("no usual_token env variable"))
+	}
+
+	return &GitLabCfg{
+		superToken,
+		usualToken,
+	}
 }
 
 func (g *GitLabCfg) validate() error {

@@ -34,7 +34,7 @@ func (p *processor) sendUsers(uuid string, users []data.User) error {
 		unverifiedUsers = append(unverifiedUsers, createUnverifiedUserFromModuleUser(users[i], permission.Link))
 	}
 
-	err := p.sender.SendMessageToCustomChannel("unverified-svc", p.buildUnverifiedUserListMessage(uuid, data.UnverifiedPayload{
+	err := p.sender.SendMessageToCustomChannel(p.unverifiedTopic, p.buildUnverifiedUserListMessage(uuid, data.UnverifiedPayload{
 		Action: SetUsersAction,
 		Users:  unverifiedUsers,
 	}))
@@ -52,7 +52,7 @@ func (p *processor) SendDeleteUser(uuid string, user data.User) error {
 
 	unverifiedUsers = append(unverifiedUsers, createUnverifiedUserFromModuleUser(user, ""))
 
-	err := p.sender.SendMessageToCustomChannel("unverified-svc", p.buildUnverifiedUserListMessage(uuid, data.UnverifiedPayload{
+	err := p.sender.SendMessageToCustomChannel(p.unverifiedTopic, p.buildUnverifiedUserListMessage(uuid, data.UnverifiedPayload{
 		Action: DeleteUsersAction,
 		Users:  unverifiedUsers,
 	}))

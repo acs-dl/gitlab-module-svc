@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+
 	"gitlab.com/distributed_lab/logan/v3"
 
 	"github.com/acs-dl/gitlab-module-svc/internal/config"
@@ -31,26 +32,28 @@ type Processor interface {
 }
 
 type processor struct {
-	log          *logan.Entry
-	gitlabClient gitlab.GitlabClient
-	permissionsQ data.Permissions
-	usersQ       data.Users
-	subsQ        data.Subs
-	managerQ     *manager.Manager
-	sender       *sender.Sender
-	pqueues      *pqueue.PQueues
+	log             *logan.Entry
+	gitlabClient    gitlab.GitlabClient
+	permissionsQ    data.Permissions
+	usersQ          data.Users
+	subsQ           data.Subs
+	managerQ        *manager.Manager
+	sender          *sender.Sender
+	pqueues         *pqueue.PQueues
+	unverifiedTopic string
 }
 
 func NewProcessorAsInterface(cfg config.Config, ctx context.Context) interface{} {
 	return interface{}(&processor{
-		log:          cfg.Log().WithField("service", ServiceName),
-		gitlabClient: gitlab.GitlabClientInstance(ctx),
-		sender:       sender.SenderInstance(ctx),
-		pqueues:      pqueue.PQueuesInstance(ctx),
-		managerQ:     manager.NewManager(cfg.DB()),
-		permissionsQ: postgres.NewPermissionsQ(cfg.DB()),
-		subsQ:        postgres.NewSubsQ(cfg.DB()),
-		usersQ:       postgres.NewUsersQ(cfg.DB()),
+		log:             cfg.Log().WithField("service", ServiceName),
+		gitlabClient:    gitlab.GitlabClientInstance(ctx),
+		sender:          sender.SenderInstance(ctx),
+		pqueues:         pqueue.PQueuesInstance(ctx),
+		managerQ:        manager.NewManager(cfg.DB()),
+		permissionsQ:    postgres.NewPermissionsQ(cfg.DB()),
+		subsQ:           postgres.NewSubsQ(cfg.DB()),
+		usersQ:          postgres.NewUsersQ(cfg.DB()),
+		unverifiedTopic: cfg.Amqp().Unverified,
 	})
 }
 
