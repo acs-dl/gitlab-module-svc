@@ -3,8 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
-	"gitlab.com/distributed_lab/logan/v3"
 	"time"
+
+	"gitlab.com/distributed_lab/logan/v3"
 
 	"github.com/acs-dl/gitlab-module-svc/internal/config"
 	"github.com/acs-dl/gitlab-module-svc/internal/data"
