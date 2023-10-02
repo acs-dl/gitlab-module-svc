@@ -11,6 +11,8 @@ import (
 	"gitlab.com/distributed_lab/logan/v3/errors"
 )
 
+var ErrNoSuchUser = errors.New("no such user was found")
+
 func (g *gitlab) RemoveUserFromApi(link, typeTo string, gitlabId int64) error {
 	params := data.RequestParams{
 		Method: http.MethodDelete,
@@ -33,7 +35,7 @@ func (g *gitlab) RemoveUserFromApi(link, typeTo string, gitlabId int64) error {
 		return errors.Wrap(err, "failed to check response status code")
 	}
 	if res == nil {
-		return errors.New("no such user was found")
+		return ErrNoSuchUser
 	}
 
 	return nil

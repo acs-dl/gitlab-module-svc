@@ -13,6 +13,12 @@ type Responses interface {
 	FilterByIds(ids ...string) Responses
 }
 
+const (
+	ResponseStatusSuccess  = "success"
+	ResponseStatusFailure  = "failure"
+	ResponseStatusNotFound = "not found"
+)
+
 type Response struct {
 	ID        string          `json:"id" db:"id" structs:"id"`
 	Status    string          `json:"status" db:"status" structs:"status"`

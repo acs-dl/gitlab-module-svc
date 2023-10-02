@@ -3,7 +3,7 @@ log:
   disable_sentry: true
 
 db:
-  url: "postgres://gitlab:gitlab@localhost:5446/gitlab?sslmode=disable"
+  url: "postgres://gitlab:gitlab@localhost:8733/gitlab?sslmode=disable"
 
 amqp:
   topic: "gitlab"
@@ -11,11 +11,6 @@ amqp:
   orchestrator: "orchestrator"
   publisher: "amqp://guest:guest@localhost:5672/" #gitlab_publisher
   subscriber: "amqp://guest:guest@localhost:5672/" #gitlab_receiver
-
-vault:
-  endpoint: "http://127.0.0.1:8200"
-  token: "hvs.2YSmkqrq29HdV7ZMlQxK2lj0"
-  path: "secret/data/gitlab"
 
 runners:
   registrar: 10m

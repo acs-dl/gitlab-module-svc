@@ -35,7 +35,7 @@ func (g *gitlab) GetUserFromApi(username string) (*data.User, error) {
 		return nil, errors.Wrap(err, "failed to check response status code")
 	}
 	if res == nil {
-		return nil, nil
+		return nil, ErrNoSuchUser
 	}
 
 	return retrieveUserFromResponse(res.Body, username)
@@ -48,7 +48,7 @@ func retrieveUserFromResponse(body io.ReadCloser, username string) (*data.User, 
 	}
 
 	if len(response) == 0 {
-		return nil, errors.New("no users with such username")
+		return nil, ErrNoSuchUser
 	}
 
 	for i := range response {
@@ -58,5 +58,5 @@ func retrieveUserFromResponse(body io.ReadCloser, username string) (*data.User, 
 
 	}
 
-	return nil, errors.New("no users with such username")
+	return nil, ErrNoSuchUser
 }
