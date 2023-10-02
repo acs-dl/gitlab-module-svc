@@ -6,6 +6,7 @@ get:
   description: Endpoint for getting permissions from gitlab module.
   parameters:
     - $ref: '#/components/parameters/userIdParam'
+    - $ref: '#/components/parameters/usernameParam'
     - $ref: '#/components/parameters/linkParam'
     - $ref: '#/components/parameters/parentLinkParam'
     - $ref: '#/components/parameters/pageLimitParam'

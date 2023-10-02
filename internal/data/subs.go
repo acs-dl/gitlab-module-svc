@@ -21,6 +21,7 @@ type Subs interface {
 	FilterByParentIds(parentIds ...int64) Subs
 	FilterByHasParent(hasParent bool) Subs
 	FilterByUserIds(userIds ...int64) Subs
+	FilterByUsernames(usernames ...string) Subs
 
 	OrderBy(columns ...string) Subs
 
