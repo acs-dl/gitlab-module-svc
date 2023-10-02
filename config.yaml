@@ -3,7 +3,7 @@ log:
   disable_sentry: true
 
 db:
-  url: "postgres://gitlab:gitlab@localhost:5446/gitlab?sslmode=disable"
+  url: "postgres://gitlab:gitlab@localhost:8733/gitlab?sslmode=disable"
 
 amqp:
   topic: "gitlab"

@@ -48,8 +48,13 @@ func (q SubsQ) New() data.Subs {
 }
 
 func (q SubsQ) Insert(sub data.Sub) error {
+	updateStmt, args := sq.Update(" ").
+		Set("link", sub.Link).
+		Set("path", sub.Path).
+		MustSql()
+
 	query := sq.Insert(subsTableName).SetMap(structs.Map(sub)).
-		Suffix(fmt.Sprintf("ON CONFLICT DO NOTHING"))
+		Suffix("ON CONFLICT (id) DO "+updateStmt, args...)
 
 	return q.db.Exec(query)
 }
