@@ -36,7 +36,7 @@ func (g *gitlab) UpdateUserFromApi(info data.Permission) (*data.Permission, erro
 		return nil, errors.Wrap(err, "failed to check response status code")
 	}
 	if res == nil {
-		return nil, errors.New("no such user was found")
+		return nil, ErrNoSuchUser
 	}
 
 	var response data.Permission

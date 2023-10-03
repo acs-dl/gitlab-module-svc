@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/acs-dl/gitlab-module-svc/internal/gitlab"
+	pkgErr "github.com/pkg/errors"
 	"gitlab.com/distributed_lab/logan/v3"
 
 	"github.com/ThreeDotsLabs/watermill-amqp/v2/pkg/amqp"
@@ -147,21 +149,12 @@ func (r *Receiver) processMessage(msg *message.Message) error {
 	}
 	queueOutput.RequestId = msg.UUID
 
-	var responseStatus = "success"
-	var errMsg = ""
 	err = HandleNewMessage(r, queueOutput)
 	if err != nil {
-		responseStatus = "failure"
-		errMsg = err.Error()
 		r.log.WithError(err).Error("failed to process message ", msg.UUID)
 	}
 
-	err = r.responseQ.Insert(data.Response{
-		ID:      msg.UUID,
-		Status:  responseStatus,
-		Error:   errMsg,
-		Payload: json.RawMessage(msg.Payload),
-	})
+	err = r.responseQ.Insert(buildHandlerResponse(msg, err))
 	if err != nil {
 		r.log.WithError(err).Errorf("failed to create response", msg.UUID)
 		return errors.Wrap(err, "failed to create response "+msg.UUID)
@@ -169,4 +162,25 @@ func (r *Receiver) processMessage(msg *message.Message) error {
 
 	r.log.Info("finished processing message ", msg.UUID)
 	return nil
+}
+
+func buildHandlerResponse(msg *message.Message, err error) data.Response {
+	var responseStatus = data.ResponseStatusSuccess
+	var errMsg = ""
+
+	if err != nil {
+		responseStatus = data.ResponseStatusFailure
+		if pkgErr.Is(err, gitlab.ErrNoSuchUser) {
+			responseStatus = data.ResponseStatusNotFound
+		}
+
+		errMsg = err.Error()
+	}
+
+	return data.Response{
+		ID:      msg.UUID,
+		Status:  responseStatus,
+		Error:   errMsg,
+		Payload: json.RawMessage(msg.Payload),
+	}
 }
