@@ -33,7 +33,10 @@ func (p *processor) HandleDeleteUserAction(msg data.ModulePayload) error {
 		return errors.New("no user was found from api")
 	}
 
-	permissions, err := p.permissionsQ.FilterByGitlabIds(userApi.GitlabId).Select()
+	permissions, err := p.permissionsQ.
+		FilterByGitlabIds(userApi.GitlabId).
+		FilterByHasParent(false).
+		Select()
 	if err != nil {
 		p.log.WithError(err).Errorf("failed to get permissions by gitlab id `%d` for message action with id `%s`", userApi.GitlabId, msg.RequestId)
 		return errors.Wrap(err, "failed to delete permission")
