@@ -137,6 +137,19 @@ func (q SubsQ) FilterByUserIds(userIds ...int64) data.Subs {
 	return q
 }
 
+func (q SubsQ) FilterByUsernames(usernames ...string) data.Subs {
+	stmt := sq.Eq{permissionsUsernameColumn: usernames}
+
+	if len(usernames) == 0 {
+		stmt = sq.Eq{permissionsUsernameColumn: nil}
+	}
+
+	q.selectBuilder = q.selectBuilder.Where(stmt)
+	q.deleteBuilder = q.deleteBuilder.Where(stmt)
+
+	return q
+}
+
 func (q SubsQ) FilterByGitlabIds(GitlabIds ...int64) data.Subs {
 	equalGitlabIds := sq.Eq{permissionsGitlabIdColumn: GitlabIds}
 

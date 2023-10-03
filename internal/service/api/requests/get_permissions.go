@@ -13,6 +13,7 @@ type GetPermissionsRequest struct {
 	Link       *string `filter:"link"`
 	ParentLink *string `filter:"parentLink"`
 	UserId     *int64  `filter:"userId"`
+	Username   *string `filter:"username"`
 }
 
 func NewGetPermissionsRequest(r *http.Request) (GetPermissionsRequest, error) {
