@@ -15,21 +15,22 @@ func (p *processor) validateDeleteUser(msg data.ModulePayload) error {
 }
 
 func (p *processor) HandleDeleteUserAction(msg data.ModulePayload) error {
-	p.log.Infof("start handle message action with id `%s`", msg.RequestId)
+	log := p.log.WithField("message", msg.RequestId)
+	log.Infof("start handling message action")
 
 	err := p.validateDeleteUser(msg)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to validate fields for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to validate fields")
+		log.WithError(err).Errorf("failed to validate fields")
+		return errors.Wrap(err, "Request is not valid")
 	}
 
 	userApi, err := gitlab.GetUser(p.pqueues.UserPQueue, any(p.gitlabClient.GetUserFromApi), []any{any(msg.Username)}, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get user id from API for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "some error while getting user id from api")
+		log.WithError(err).Errorf("failed to get user id from API")
+		return err
 	}
 	if userApi == nil {
-		p.log.Errorf("no user was found from api for message action with id `%s`", msg.RequestId)
+		log.Errorf("no user was found from api for message action with id `%s`", msg.RequestId)
 		return errors.New("no user was found from api")
 	}
 
@@ -38,25 +39,25 @@ func (p *processor) HandleDeleteUserAction(msg data.ModulePayload) error {
 		FilterByHasParent(false).
 		Select()
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get permissions by gitlab id `%d` for message action with id `%s`", userApi.GitlabId, msg.RequestId)
+		log.WithError(err).Errorf("failed to get permissions by gitlab id `%d` for message action with id `%s`", userApi.GitlabId, msg.RequestId)
 		return errors.Wrap(err, "failed to delete permission")
 	}
 
 	for _, permission := range permissions {
 		err = p.removePermissionFromRemoteAndLocal(permission)
 		if err != nil {
-			p.log.WithError(err).Errorf("failed to remove permission from remote and local for message action with id `%s`", msg.RequestId)
+			log.WithError(err).Errorf("failed to remove permission from remote and local for message action with id `%s`", msg.RequestId)
 			return errors.Wrap(err, "failed to remove permission from remote and local")
 		}
 	}
 
 	err = p.removeUserFromService(msg.RequestId, userApi.GitlabId)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to make remove user transaction for message action with id `%s`", msg.RequestId)
+		log.WithError(err).Errorf("failed to make remove user transaction for message action with id `%s`", msg.RequestId)
 		return errors.Wrap(err, "failed to make remove user transaction")
 	}
 
-	p.log.Infof("finish handle message action with id `%s`", msg.RequestId)
+	log.Infof("finish handling message action")
 	return nil
 }
 

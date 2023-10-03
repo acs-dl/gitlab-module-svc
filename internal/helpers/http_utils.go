@@ -18,7 +18,7 @@ import (
 func MakeHttpRequest(params data.RequestParams) (*data.ResponseParams, error) {
 	req, err := http.NewRequest(params.Method, params.Link, bytes.NewReader(params.Body))
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't create request")
+		return nil, errors.Wrap(err, "Failed to create request")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), params.Timeout)
@@ -41,12 +41,12 @@ func MakeHttpRequest(params data.RequestParams) (*data.ResponseParams, error) {
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "error making http request")
+		return nil, errors.Wrap(err, "Failed to make http request")
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading response body")
+		return nil, errors.Wrap(err, "Failed to read response body")
 	}
 	clearBody := io.NopCloser(bytes.NewReader(body))
 
