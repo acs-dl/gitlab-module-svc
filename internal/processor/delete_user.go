@@ -40,6 +40,10 @@ func (p *processor) HandleDeleteUserAction(msg data.ModulePayload) error {
 	}
 
 	for _, permission := range permissions {
+		if permission.HasParent {
+			continue
+		}
+
 		err = p.removePermissionFromRemoteAndLocal(permission)
 		if err != nil {
 			p.log.WithError(err).Errorf("failed to remove permission from remote and local for message action with id `%s`", msg.RequestId)

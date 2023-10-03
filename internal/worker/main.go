@@ -3,8 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
-	"gitlab.com/distributed_lab/logan/v3"
 	"time"
+
+	"gitlab.com/distributed_lab/logan/v3"
 
 	"github.com/acs-dl/gitlab-module-svc/internal/config"
 	"github.com/acs-dl/gitlab-module-svc/internal/data"
@@ -69,7 +70,7 @@ func (w *Worker) Run(ctx context.Context) {
 
 func (w *Worker) ProcessPermissions(_ context.Context) error {
 	w.logger.Info("fetching links")
-
+	return nil
 	startTime := time.Now()
 
 	links, err := w.linksQ.Select()
