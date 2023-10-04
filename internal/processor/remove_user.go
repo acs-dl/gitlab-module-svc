@@ -7,6 +7,7 @@ import (
 	"github.com/acs-dl/gitlab-module-svc/internal/gitlab"
 	"github.com/acs-dl/gitlab-module-svc/internal/pqueue"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"gitlab.com/distributed_lab/logan/v3"
 	"gitlab.com/distributed_lab/logan/v3/errors"
 )
 
@@ -18,76 +19,73 @@ func (p *processor) validateRemoveUser(msg data.ModulePayload) error {
 }
 
 func (p *processor) HandleRemoveUserAction(msg data.ModulePayload) error {
-	p.log.Infof("start handle message action with id `%s`", msg.RequestId)
+	log := p.log.WithField("message", msg.RequestId)
+	log.Infof("start handling remove user action")
 
 	err := p.validateRemoveUser(msg)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to validate fields for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to validate fields")
+		log.WithError(err).Errorf("failed to validate fields")
+		return errors.Wrap(err, "Request is not valid")
 	}
 	msg.Link = strings.ToLower(msg.Link)
 
 	msg.Type, err = p.getLinkType(msg.Link, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get link type for message action with id `%s`", msg.RequestId)
+		p.log.WithError(err).Errorf("failed to get link type", msg.RequestId)
 		return errors.Wrap(err, "failed to get link type")
 	}
 
 	userApi, err := gitlab.GetUser(p.pqueues.UserPQueue, any(p.gitlabClient.GetUserFromApi), []any{any(msg.Username)}, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get user id from API for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "some error while getting user id from api")
-	}
-	if userApi == nil {
-		p.log.Errorf("no user was found from api for message action with id `%s`", msg.RequestId)
-		return errors.New("no user was found from api")
+		log.WithError(err).Errorf("failed to get user from API")
+		return err
 	}
 
 	dbUser, err := p.usersQ.FilterByUsernames(msg.Username).Get()
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get user from user db for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to get user from user db")
+		log.WithError(err).Errorf("failed to get user by `%s` username", msg.Username)
+		return errors.Errorf("Failed to get user `%s` by Gitlab username from database", msg.Username)
 	}
 
 	if dbUser == nil {
-		p.log.Errorf("no user with such username for message action with id `%s`", msg.RequestId)
-		return errors.New("no user with such username")
+		log.Errorf("no user with such username `%s`", msg.Username)
+		return errors.Errorf("No user with Gitlab username `%s` was found in database", msg.Username)
 	}
 
-	err = gitlab.GetRequestError(p.pqueues.UserPQueue, any(p.gitlabClient.RemoveUserFromApi), []any{
+	err = gitlab.GetRequestError(p.pqueues.SuperUserPQueue, any(p.gitlabClient.RemoveUserFromApi), []any{
 		any(msg.Link),
 		any(msg.Type),
 		any(userApi.GitlabId),
 	}, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to remove user from API for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "some error while removing user from api")
+		log.WithError(err).Errorf("failed to remove `%d` from `%s` via gitlab API", userApi.GitlabId, msg.Link)
+		return err
 	}
 
 	err = p.managerQ.Transaction(func() error {
-		err = p.deleteLowerLevelPermissions(userApi.GitlabId, msg.Link, msg.Type)
+		err = p.deleteLowerLevelPermissions(userApi.GitlabId, msg.Link, msg.Type, log)
 		if err != nil {
-			p.log.WithError(err).Errorf("failed to delete permission from db for message action with id `%s`", msg.RequestId)
-			return errors.Wrap(err, "failed to delete permission")
+			log.WithError(err).Errorf("failed to delete lower level permissions")
+			return err
 		}
 
 		permissions, err := p.permissionsQ.FilterByGitlabIds(userApi.GitlabId).Select()
 		if err != nil {
-			p.log.WithError(err).Errorf("failed to get permissions by gitlab id `%d` for message action with id `%s`", userApi.GitlabId, msg.RequestId)
-			return errors.Wrap(err, "failed to delete permission")
+			log.WithError(err).Errorf("failed to select permissions by gitlab id `%d`", userApi.GitlabId)
+			return errors.Errorf("Failed to select permissions by `%s` Gitlab ID from database", userApi.GitlabId)
 		}
 		if len(permissions) == 0 {
 			err = p.usersQ.FilterByGitlabIds(userApi.GitlabId).Delete()
 			if err != nil {
-				p.log.WithError(err).Errorf("failed to delete user by gitlab id `%d` for message action with id `%s`", userApi.GitlabId, msg.RequestId)
-				return errors.Wrap(err, "failed to delete user")
+				log.WithError(err).Errorf("failed to delete user by `%s` gitlab id", userApi.GitlabId)
+				return errors.Errorf("Failed to delete user `%s` by Gitlab ID from database", userApi.GitlabId)
 			}
 
 			if dbUser.Id == nil {
 				err = p.SendDeleteUser(msg.RequestId, *dbUser)
 				if err != nil {
-					p.log.WithError(err).Errorf("failed to publish delete user for message action with id `%s`", msg.RequestId)
-					return errors.Wrap(err, "failed to publish delete user")
+					log.WithError(err).Errorf("failed to publish delete user")
+					return err
 				}
 			}
 		}
@@ -95,23 +93,25 @@ func (p *processor) HandleRemoveUserAction(msg data.ModulePayload) error {
 		return nil
 	})
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to make remove user transaction for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to make remove user transaction")
+		log.WithError(err).Errorf("failed to make remove user transaction")
+		return err
 	}
 
-	p.log.Infof("finish handle message action with id `%s`", msg.RequestId)
+	log.Infof("finish handling remove user message action")
 	return nil
 }
 
-func (p *processor) deleteLowerLevelPermissions(gitlabId int64, link, typeTo string) error {
+func (p *processor) deleteLowerLevelPermissions(gitlabId int64, link, typeTo string, logger *logan.Entry) error {
 	err := p.permissionsQ.FilterByGitlabIds(gitlabId).FilterByTypes(typeTo).FilterByLinks(link).Delete()
 	if err != nil {
-		return errors.Wrap(err, "failed to delete permission")
+		logger.WithError(err).Errorf("failed to delete permission for `%d` from `%s` from db", gitlabId, link)
+		return errors.Errorf("Failed to delete permission for `%d` from `%s` from database", gitlabId, link)
 	}
 
 	permissions, err := p.permissionsQ.FilterByParentLinks(link).FilterByGitlabIds(gitlabId).Select()
 	if err != nil {
-		return errors.Wrap(err, "failed to select permissions")
+		logger.WithError(err).Errorf("failed to select permission for `%d` by `%s` parent link from db", gitlabId, link)
+		return errors.Errorf("Failed to select permission for `%d` by `%s` parent link from db", gitlabId, link)
 	}
 
 	if len(permissions) == 0 {
@@ -119,9 +119,10 @@ func (p *processor) deleteLowerLevelPermissions(gitlabId int64, link, typeTo str
 	}
 
 	for _, permission := range permissions {
-		err = p.deleteLowerLevelPermissions(permission.GitlabId, permission.Link, permission.Type)
+		err = p.deleteLowerLevelPermissions(permission.GitlabId, permission.Link, permission.Type, logger)
 		if err != nil {
-			return errors.Wrap(err, "failed to delete lower level permission")
+			p.log.WithError(err).Errorf("failed to delete lower level permissions")
+			return err
 		}
 	}
 

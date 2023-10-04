@@ -66,9 +66,9 @@ func HandleHttpResponseStatusCode(response *data.ResponseParams, params data.Req
 	case status == http.StatusTooManyRequests:
 		return HandleTooManyRequests(response.Header, params)
 	case status < http.StatusOK || status >= http.StatusMultipleChoices:
-		return nil, errors.New(fmt.Sprintf("error in response `%s`", http.StatusText(response.StatusCode)))
+		return nil, errors.New(fmt.Sprintf("Error in API response `%s`", http.StatusText(response.StatusCode)))
 	default:
-		return nil, errors.New(fmt.Sprintf("unexpected response status `%s`", http.StatusText(response.StatusCode)))
+		return nil, errors.New(fmt.Sprintf("Unexpected API response status `%s`", http.StatusText(response.StatusCode)))
 	}
 }
 
@@ -93,20 +93,20 @@ func MakeRequestWithPagination(params data.RequestParams) ([]byte, error) {
 
 		res, err := MakeHttpRequest(params)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to make http request")
+			return nil, err
 		}
 
 		res, err = HandleHttpResponseStatusCode(res, params)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to check response status code")
+			return nil, err
 		}
 		if res == nil {
-			return nil, errors.Errorf("error in response, status %v", res.StatusCode)
+			return nil, errors.Errorf("Error in response, status %v", res.StatusCode)
 		}
 
 		var response []interface{}
 		if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
-			return nil, errors.Wrap(err, "failed to unmarshal body")
+			return nil, errors.Wrap(err, "Failed to unmarshal response body")
 		}
 
 		if len(response) == 0 {

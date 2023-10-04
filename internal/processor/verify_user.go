@@ -19,57 +19,55 @@ func (p *processor) validateVerifyUser(msg data.ModulePayload) error {
 }
 
 func (p *processor) HandleVerifyUserAction(msg data.ModulePayload) error {
-	p.log.Infof("start handle message action with id `%s`", msg.RequestId)
+	log := p.log.WithField("message", msg.RequestId)
+	log.Infof("start handling verify user action")
 
 	err := p.validateVerifyUser(msg)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to validate fields for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to validate fields")
+		log.WithError(err).Errorf("failed to validate fields")
+		return errors.Wrap(err, "Request is not valid")
 	}
 
 	userId, err := strconv.ParseInt(msg.UserId, 10, 64)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to parse user id `%s` for message action with id `%s`", msg.UserId, msg.RequestId)
-		return errors.Wrap(err, "failed to parse user id")
+		log.WithError(err).Errorf("failed to parse user id `%s`", msg.UserId)
+		return errors.Errorf("Failed to parse user ID `%s`", msg.UserId)
 	}
 
 	userApi, err := gitlab.GetUser(p.pqueues.UserPQueue, any(p.gitlabClient.GetUserFromApi), []any{any(msg.Username)}, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get user id from API for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "some error while getting user id from api")
+		log.WithError(err).Errorf("failed to get user from API")
+		return err
 	}
-	if userApi == nil {
-		p.log.Errorf("no user was found from api for message action with id `%s`", msg.RequestId)
-		return errors.New("no user was found from api")
-	}
+
 	userApi.Id = &userId
 	userApi.CreatedAt = time.Now()
 
 	err = p.managerQ.Transaction(func() error {
 		if err = p.usersQ.Upsert(*userApi); err != nil {
-			p.log.WithError(err).Errorf("failed to upsert user in user db for message action with id `%s`", msg.RequestId)
-			return errors.Wrap(err, "failed to upsert user in user db")
+			log.WithError(err).Errorf("failed to create user in user db")
+			return errors.Errorf("Failed to create new user in database")
 		}
 
 		err = p.permissionsQ.FilterByGitlabIds(userApi.GitlabId).Update(data.PermissionToUpdate{UserId: &userId})
 		if err != nil {
-			p.log.WithError(err).Errorf("failed to update user id in permission db for message action with id `%s`", msg.RequestId)
-			return errors.Wrap(err, "failed to update user id in user db")
+			log.WithError(err).Errorf("failed to update user id for `%d` in permission db", msg.GitlabId)
+			return errors.Errorf("Failed to update user id in user database for `%d` Gitlab ID", msg.GitlabId)
 		}
 
 		return nil
 	})
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to make add user transaction for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to make add user transaction")
+		log.WithError(err).Errorf("failed to make verify user transaction")
+		return err
 	}
 
 	err = p.SendDeleteUser(msg.RequestId, *userApi)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to publish delete user for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to publish delete user")
+		log.WithError(err).Errorf("failed to publish delete users")
+		return err
 	}
 
-	p.log.Infof("finish handle message action with id `%s`", msg.RequestId)
+	log.Infof("finish handling add user message action")
 	return nil
 }

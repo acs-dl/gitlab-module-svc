@@ -7,6 +7,7 @@ import (
 	"github.com/acs-dl/gitlab-module-svc/internal/gitlab"
 	"github.com/acs-dl/gitlab-module-svc/internal/pqueue"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"gitlab.com/distributed_lab/logan/v3"
 	"gitlab.com/distributed_lab/logan/v3/errors"
 )
 
@@ -19,25 +20,26 @@ func (p *processor) validateUpdateUser(msg data.ModulePayload) error {
 }
 
 func (p *processor) HandleUpdateUserAction(msg data.ModulePayload) error {
-	p.log.Infof("start handle message action with id `%s`", msg.RequestId)
+	log := p.log.WithField("message", msg.RequestId)
+	log.Infof("start handling verify user action")
 
 	err := p.validateUpdateUser(msg)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to validate fields for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to validate fields")
+		log.WithError(err).Errorf("failed to validate fields")
+		return errors.Wrap(err, "Request is not valid")
 	}
 	msg.Link = strings.ToLower(msg.Link)
 
 	msg.Type, err = p.getLinkType(msg.Link, pqueue.NormalPriority)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to get link type for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to get link type")
+		log.WithError(err).Errorf("failed to get link type")
+		return err
 	}
 
-	user, err := p.checkUserExistence(msg.Username)
+	user, err := p.checkUserExistence(msg.Username, log)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to check user existence for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to check user existence")
+		log.WithError(err).Errorf("failed to check user existence")
+		return err
 	}
 
 	err = p.updateUser(data.Permission{
@@ -46,34 +48,31 @@ func (p *processor) HandleUpdateUserAction(msg data.ModulePayload) error {
 		AccessLevel: msg.AccessLevel,
 		Link:        msg.Link,
 		Type:        msg.Type,
-	})
+	}, log)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to update user for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to update user")
+		p.log.WithError(err).Errorf("failed to update user")
+		return err
 	}
 
-	err = p.indexHasParentChild(user.GitlabId, msg.Link)
+	err = p.indexHasParentChild(user.GitlabId, msg.Link, log)
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to check has parent/child for message action with id `%s`", msg.RequestId)
-		return errors.Wrap(err, "failed to check parent level")
+		log.WithError(err).Errorf("failed to index has parent/child for `%d` from `%s`", user.GitlabId, msg.Link)
+		return err
 	}
 
-	p.log.Infof("finish handle message action with id `%s`", msg.RequestId)
+	log.Infof("finish handling update user message action")
 	return nil
 }
 
-func (p *processor) updateUser(info data.Permission) error {
+func (p *processor) updateUser(info data.Permission, logger *logan.Entry) error {
 	permission, err := gitlab.GetPermission(
 		p.pqueues.SuperUserPQueue,
 		any(p.gitlabClient.UpdateUserFromApi),
 		[]any{any(info)},
 		pqueue.NormalPriority)
 	if err != nil {
-		return errors.Wrap(err, "some error while updating user from api")
-	}
-
-	if permission == nil {
-		return errors.Errorf("something wrong with updating user from api")
+		logger.WithError(err).Errorf("failed to update user from api")
+		return err
 	}
 
 	err = p.permissionsQ.FilterByGitlabIds(permission.GitlabId).FilterByLinks(info.Link).
@@ -82,28 +81,32 @@ func (p *processor) updateUser(info data.Permission) error {
 			AccessLevel: &permission.AccessLevel,
 		})
 	if err != nil {
-		return errors.Wrap(err, "failed to update user in permission db")
+		logger.WithError(err).Errorf("failed to update permission `%s` in `%s` in user db", info.Username, info.Link)
+		return errors.Errorf("Failed to update permission for `%s` in `%s` in user database", info.Username, info.Link)
 	}
+
 	return nil
 }
 
-func (p *processor) checkUserExistence(username string) (*data.User, error) {
+func (p *processor) checkUserExistence(username string, logger *logan.Entry) (*data.User, error) {
 	dbUser, err := p.usersQ.FilterByUsernames(username).Get()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get user from user db")
+		logger.WithError(err).Errorf("failed to get user `%s` from user db", username)
+		return nil, errors.Errorf("Failed to get user `%s` from user database", username)
 	}
 
 	if dbUser == nil {
-		return nil, errors.New("no user with such username")
+		return nil, errors.Errorf("No user was found with `%s` username in database", username)
 	}
 
 	userApi, err := gitlab.GetUser(p.pqueues.UserPQueue, any(p.gitlabClient.GetUserFromApi), []any{any(username)}, pqueue.NormalPriority)
 	if err != nil {
-		return nil, errors.Wrap(err, "some error while getting user from api")
+		logger.WithError(err).Errorf("failed to get user from API")
+		return nil, err
 	}
 
 	if userApi == nil {
-		return nil, errors.Errorf("something wrong with user from api")
+		return nil, errors.Errorf("No user was found with `%s` username in Gitlab API", username)
 	}
 
 	return dbUser, nil
