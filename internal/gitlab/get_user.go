@@ -27,28 +27,29 @@ func (g *gitlab) GetUserFromApi(username string) (*data.User, error) {
 
 	res, err := helpers.MakeHttpRequest(params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make http request")
+		return nil, err
 	}
 
 	res, err = helpers.HandleHttpResponseStatusCode(res, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to check response status code")
+		return nil, err
 	}
 	if res == nil {
-		return nil, nil
+		return nil, errors.Errorf("No user with `%s` username was found in gitlab API", username)
 	}
 
 	return retrieveUserFromResponse(res.Body, username)
 }
 
 func retrieveUserFromResponse(body io.ReadCloser, username string) (*data.User, error) {
+	var errNoSuchUser = errors.Errorf("No user with `%s` username was found in gitlab API", username)
 	var response []data.User
 	if err := json.NewDecoder(body).Decode(&response); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal body")
+		return nil, errors.Wrap(err, "Failed to unmarshal response body")
 	}
 
 	if len(response) == 0 {
-		return nil, errors.New("no users with such username")
+		return nil, errNoSuchUser
 	}
 
 	for i := range response {
@@ -58,5 +59,5 @@ func retrieveUserFromResponse(body io.ReadCloser, username string) (*data.User, 
 
 	}
 
-	return nil, errors.New("no users with such username")
+	return nil, errNoSuchUser
 }

@@ -28,20 +28,20 @@ func (g *gitlab) UpdateUserFromApi(info data.Permission) (*data.Permission, erro
 
 	res, err := helpers.MakeHttpRequest(params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make http request")
+		return nil, err
 	}
 
 	res, err = helpers.HandleHttpResponseStatusCode(res, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to check response status code")
+		return nil, err
 	}
 	if res == nil {
-		return nil, errors.New("no such user was found")
+		return nil, errors.Errorf("No user with `%s` username was found in gitlab API", info.Username)
 	}
 
 	var response data.Permission
 	if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal body")
+		return nil, errors.Wrap(err, "Failed to unmarshal response body")
 	}
 
 	return &response, nil

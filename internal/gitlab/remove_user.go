@@ -25,15 +25,15 @@ func (g *gitlab) RemoveUserFromApi(link, typeTo string, gitlabId int64) error {
 
 	res, err := helpers.MakeHttpRequest(params)
 	if err != nil {
-		return errors.Wrap(err, "failed to make http request")
+		return err
 	}
 
 	res, err = helpers.HandleHttpResponseStatusCode(res, params)
 	if err != nil {
-		return errors.Wrap(err, "failed to check response status code")
+		return err
 	}
 	if res == nil {
-		return errors.New("no such user was found")
+		return errors.Errorf("No user with `%d` Gitlab ID was found in `%s`", gitlabId, link)
 	}
 
 	return nil

@@ -15,7 +15,7 @@ import (
 func (g *gitlab) AddUsersFromApi(link, typeTo string, info data.Permission) (*data.Permission, error) {
 	jsonBody, err := createAddUserRequestBody(info.GitlabId, info.AccessLevel)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create body")
+		return nil, errors.Wrap(err, "Failed to create add user request body")
 	}
 
 	params := data.RequestParams{
@@ -32,20 +32,20 @@ func (g *gitlab) AddUsersFromApi(link, typeTo string, info data.Permission) (*da
 
 	res, err := helpers.MakeHttpRequest(params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make http request")
+		return nil, err
 	}
 
 	res, err = helpers.HandleHttpResponseStatusCode(res, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to check response status code")
+		return nil, err
 	}
 	if res == nil {
-		return nil, nil
+		return nil, errors.Errorf("Failed to add `%d` in `%s`, 404 error from Gitlab API", info.GitlabId, link)
 	}
 
 	var response data.Permission
 	if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal body")
+		return nil, errors.Wrap(err, "Failed to unmarshal response body")
 	}
 
 	return &response, nil

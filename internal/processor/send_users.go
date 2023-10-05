@@ -57,8 +57,8 @@ func (p *processor) SendDeleteUser(uuid string, user data.User) error {
 		Users:  unverifiedUsers,
 	}))
 	if err != nil {
-		p.log.WithError(err).Errorf("failed to publish users to `unverified-svc`")
-		return errors.Wrap(err, "failed to publish users to `unverified-svc`")
+		p.log.WithError(err).Errorf("failed to publish user to `unverified-svc`")
+		return errors.Errorf("Failed to publish delete user request to `unverified-svc`")
 	}
 
 	p.log.Infof("successfully published users to `unverified-svc`")

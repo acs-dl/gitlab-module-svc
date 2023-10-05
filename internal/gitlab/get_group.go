@@ -26,12 +26,12 @@ func (g *gitlab) getGroupFromApi(link string) (*data.Sub, error) {
 
 	res, err := helpers.MakeHttpRequest(params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make http request")
+		return nil, err
 	}
 
 	res, err = helpers.HandleHttpResponseStatusCode(res, params)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to check response status code")
+		return nil, err
 	}
 	if res == nil {
 		return nil, nil
@@ -39,7 +39,7 @@ func (g *gitlab) getGroupFromApi(link string) (*data.Sub, error) {
 
 	var response data.Sub
 	if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal body")
+		return nil, errors.Wrap(err, "Failed to unmarshal response body from API")
 	}
 
 	return &response, nil

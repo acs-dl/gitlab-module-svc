@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"gitlab.com/distributed_lab/logan/v3"
@@ -68,6 +67,10 @@ func (w *Worker) Run(ctx context.Context) {
 	)
 }
 
+// ProcessPermissions .Wrap from return err was removed because
+// errors must be human-readable from very low level to send them in FE
+// in case if function was called from user request. Log must be put before
+// every error to track it if any
 func (w *Worker) ProcessPermissions(_ context.Context) error {
 	w.logger.Info("fetching links")
 
@@ -75,7 +78,8 @@ func (w *Worker) ProcessPermissions(_ context.Context) error {
 
 	links, err := w.linksQ.Select()
 	if err != nil {
-		return errors.Wrap(err, "failed to get links")
+		w.logger.WithError(err).Errorf("failed to select links")
+		return errors.Errorf("Failed to select links to process")
 	}
 
 	reqAmount := len(links)
@@ -87,28 +91,27 @@ func (w *Worker) ProcessPermissions(_ context.Context) error {
 	w.logger.Infof("found %v links", reqAmount)
 
 	for _, link := range links {
-		w.logger.Infof("processing link `%s`", link.Link)
+		w.logger.WithField("link", link.Link).Info("start processing")
 
 		err = w.createSubs(link.Link)
 		if err != nil {
 			w.logger.WithError(err).Errorf("failed to create subs for link `%s", link.Link)
-			return errors.Wrap(err, "failed to create subs")
+			return err
 		}
 
-		w.logger.WithField("link", link.Link).Info("link was processed successfully")
-
+		w.logger.WithField("link", link.Link).Info("processed successfully")
 	}
 
 	err = w.removeOldUsers(startTime)
 	if err != nil {
 		w.logger.WithError(err).Errorf("failed to remove old users")
-		return errors.Wrap(err, "failed to remove old users")
+		return err
 	}
 
 	err = w.removeOldPermissions(startTime)
 	if err != nil {
 		w.logger.WithError(err).Errorf("failed to remove old permissions")
-		return errors.Wrap(err, "failed to remove old permissions")
+		return err
 	}
 
 	w.estimatedTime = time.Now().Sub(startTime)
@@ -120,8 +123,8 @@ func (w *Worker) removeOldUsers(borderTime time.Time) error {
 
 	users, err := w.usersQ.FilterByLowerTime(borderTime).Select()
 	if err != nil {
-		w.logger.Infof("failed to select users")
-		return errors.Wrap(err, " failed to select users")
+		w.logger.WithError(err).Errorf("failed to select users updated after `%s`", borderTime.String())
+		return errors.Errorf("Failed to get users updated after `%s`", borderTime.UTC().String())
 	}
 
 	w.logger.Infof("found `%d` users to delete", len(users))
@@ -131,14 +134,14 @@ func (w *Worker) removeOldUsers(borderTime time.Time) error {
 			err = w.processor.SendDeleteUser(uuid.New().String(), user)
 			if err != nil {
 				w.logger.WithError(err).Errorf("failed to publish delete user")
-				return errors.Wrap(err, " failed to publish delete user")
+				return err
 			}
 		}
 
 		err = w.usersQ.FilterByGitlabIds(user.GitlabId).Delete()
 		if err != nil {
 			w.logger.Infof("failed to delete user with gitlab id `%d`", user.GitlabId)
-			return errors.Wrap(err, " failed to delete user")
+			return errors.Errorf("Failed to delete user by Gitlab ID `%d` from database", user.GitlabId)
 		}
 	}
 
@@ -151,8 +154,8 @@ func (w *Worker) removeOldPermissions(borderTime time.Time) error {
 
 	permissions, err := w.permissionsQ.FilterByLowerTime(borderTime).Select()
 	if err != nil {
-		w.logger.Infof("failed to select permissions")
-		return errors.Wrap(err, " failed to select permissions")
+		w.logger.WithError(err).Errorf("failed to select permissions updated after `%s`", borderTime.String())
+		return errors.Errorf("Failed to get permissions updated after `%s`", borderTime.UTC().String())
 	}
 
 	w.logger.Infof("found `%d` permissions to delete", len(permissions))
@@ -160,8 +163,8 @@ func (w *Worker) removeOldPermissions(borderTime time.Time) error {
 	for _, permission := range permissions {
 		err = w.permissionsQ.FilterByGitlabIds(permission.GitlabId).FilterByTypes(permission.Type).FilterByLinks(permission.Link).Delete()
 		if err != nil {
-			w.logger.Infof("failed to delete permission")
-			return errors.Wrap(err, " failed to delete permission")
+			w.logger.Infof("failed to delete permission for gitlab id `%d` from `%s`", permission.GitlabId, permission.Link)
+			return errors.Errorf("Failed to delete permission for gitlab id `%d` from `%s`", permission.GitlabId, permission.Link)
 		}
 	}
 
@@ -176,14 +179,17 @@ func (w *Worker) createPermission(link string) error {
 		RequestId: "from-worker",
 		Link:      link,
 	}); err != nil {
-		w.logger.Errorf("failed to get users sub `%s`", link)
-		return errors.Wrap(err, "failed to get users")
+		w.logger.Errorf("failed to get users for sub `%s`", link)
+		return err
 	}
 
 	w.logger.Infof("successfully processed sub `%s", link)
 	return nil
 }
 
+// RefreshSubmodules .Wrap from return err was removed because
+// errors must be human-readable from very low level to send them in FE
+// log must be put before every error to track it if any
 func (w *Worker) RefreshSubmodules(msg data.ModulePayload) error {
 	w.logger.Infof("started refresh submodules")
 
@@ -192,8 +198,8 @@ func (w *Worker) RefreshSubmodules(msg data.ModulePayload) error {
 
 		err := w.createSubs(link)
 		if err != nil {
-			w.logger.Infof("failed to create subs for link `%s", link)
-			return errors.Wrap(err, "failed to create subs")
+			w.logger.WithError(err).Errorf("failed to create subs for link `%s", link)
+			return err
 		}
 		w.logger.Infof("finished refreshing `%s`", link)
 	}
@@ -208,16 +214,11 @@ func (w *Worker) createSubs(link string) error {
 	checkType, err := gitlab.GetPermissionWithType(w.pqueues.SuperUserPQueue, any(w.gitlabClient.FindTypeFromApi), []any{any(link)}, pqueue.LowPriority)
 	if err != nil {
 		w.logger.Errorf("failed to get type for link `%s`", link)
-		return errors.Wrap(err, "failed to get type")
-	}
-
-	if checkType == nil {
-		w.logger.Errorf("failed to get sub for link `%s`", link)
-		return errors.New("failed to get sub")
+		return err
 	}
 
 	if validation.Validate(checkType.Type, validation.In(data.Group, data.Project)) != nil {
-		return errors.New("something wrong with link type")
+		return errors.Errorf("Failed to validate link type")
 	}
 
 	var sub = data.Sub{
@@ -235,14 +236,14 @@ func (w *Worker) createSubs(link string) error {
 	}
 	err = w.subsQ.Insert(sub)
 	if err != nil {
-		w.logger.Infof("failed to upsert sub for link `%s`", link)
-		return errors.Wrap(err, "failed to upsert sub")
+		w.logger.WithError(err).Errorf("failed to insert sub for link `%s`", link)
+		return errors.Errorf("Failed to insert link details for `%s`", link)
 	}
 
 	err = w.createPermission(link)
 	if err != nil {
-		w.logger.Infof("failed to create permissions for sub with link `%s`", link)
-		return errors.Wrap(err, "failed to create permissions for sub")
+		w.logger.WithError(err).Errorf("failed to create permissions for sub with link `%s`", link)
+		return err
 	}
 
 	if checkType.Type == data.Project {
@@ -251,8 +252,8 @@ func (w *Worker) createSubs(link string) error {
 
 	err = w.processNested(link, checkType.Sub.Id)
 	if err != nil {
-		w.logger.Infof("failed to index subs for link `%s`", link)
-		return errors.Wrap(err, "failed to index subs")
+		w.logger.WithError(err).Errorf("failed to index subs for link `%s`", link)
+		return err
 	}
 
 	w.logger.Infof("finished creating subs for link `%s", link)
@@ -264,8 +265,8 @@ func (w *Worker) processNested(link string, parentId int64) error {
 
 	projects, err := w.gitlabClient.GetProjectsFomApi(link)
 	if err != nil {
-		w.logger.Infof("failed to get projects for link `%s`", link)
-		return errors.Wrap(err, fmt.Sprintf("failed to get projects for link `%s`", link))
+		w.logger.WithError(err).Errorf("failed to get projects for link `%s`", link)
+		return err
 	}
 
 	for _, project := range projects {
@@ -277,21 +278,21 @@ func (w *Worker) processNested(link string, parentId int64) error {
 			ParentId: &parentId,
 		})
 		if err != nil {
-			w.logger.Infof("failed to upsert sub with link `%s`", link+"/"+project.Path)
-			return errors.Wrap(err, fmt.Sprintf("failed to get upsert sub with link `%s`", link+"/"+project.Path))
+			w.logger.WithError(err).Errorf("failed to insert sub with link `%s`", link+"/"+project.Path)
+			return errors.Errorf("Failed to create link details for `%s` in database", link+"/"+project.Path)
 		}
 
 		err = w.createPermission(link + "/" + project.Path)
 		if err != nil {
-			w.logger.Infof("failed to create permissions for sub with link `%s`", link+"/"+project.Path)
-			return errors.Wrap(err, "failed to create permissions for sub")
+			w.logger.WithError(err).Errorf("failed to create permissions for sub with link `%s`", link+"/"+project.Path)
+			return err
 		}
 	}
 
 	subgroups, err := w.gitlabClient.GetSubgroupsFomApi(link)
 	if err != nil {
-		w.logger.Infof("failed to get subgroups for link `%s`", link)
-		return errors.Wrap(err, fmt.Sprintf("failed to get subgroups for link `%s`", link))
+		w.logger.WithError(err).Errorf("failed to get subgroups for link `%s`", link)
+		return err
 	}
 
 	if len(subgroups) == 0 {
@@ -307,20 +308,20 @@ func (w *Worker) processNested(link string, parentId int64) error {
 			ParentId: &parentId,
 		})
 		if err != nil {
-			w.logger.Infof("failed to upsert sub with link `%s`", link+"/"+subgroup.Path)
-			return errors.Wrap(err, fmt.Sprintf("failed to get upsert sub with link `%s`", link+"/"+subgroup.Path))
+			w.logger.WithError(err).Errorf("failed to insert sub with link `%s`", link+"/"+subgroup.Path)
+			return errors.Errorf("Failed to create link details for `%s` in database", link+"/"+subgroup.Path)
 		}
 
 		err = w.createPermission(link + "/" + subgroup.Path)
 		if err != nil {
 			w.logger.Infof("failed to create permissions for sub with link `%s`", link+"/"+subgroup.Path)
-			return errors.Wrap(err, "failed to create permissions for sub")
+			return err
 		}
 
 		err = w.processNested(link+"/"+subgroup.Path, subgroup.Id)
 		if err != nil {
-			w.logger.Infof("failed to make recursion")
-			return errors.Wrap(err, "failed to make recursion")
+			w.logger.WithError(err).Errorf("failed to process nested permissions")
+			return err
 		}
 	}
 

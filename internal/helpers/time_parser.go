@@ -19,5 +19,5 @@ func ParseTime(input string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Time{}, errors.Errorf("unrecognized time `%s` format", input)
+	return time.Time{}, errors.Errorf("Unexpected time format `%s`", input)
 }

@@ -31,7 +31,7 @@ func (g *gitlab) GetProjectsFomApi(link string) ([]data.Sub, error) {
 
 	var result []data.Sub
 	if err = json.Unmarshal(response, &result); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal body")
+		return nil, errors.Wrap(err, "Failed to unmarshal response body")
 	}
 
 	return result, nil
