@@ -67,6 +67,10 @@ func (w *Worker) Run(ctx context.Context) {
 	)
 }
 
+// ProcessPermissions .Wrap from return err was removed because
+// errors must be human-readable from very low level to send them in FE
+// in case if function was called from user request. Log must be put before
+// every error to track it if any
 func (w *Worker) ProcessPermissions(_ context.Context) error {
 	w.logger.Info("fetching links")
 
@@ -183,6 +187,9 @@ func (w *Worker) createPermission(link string) error {
 	return nil
 }
 
+// RefreshSubmodules .Wrap from return err was removed because
+// errors must be human-readable from very low level to send them in FE
+// log must be put before every error to track it if any
 func (w *Worker) RefreshSubmodules(msg data.ModulePayload) error {
 	w.logger.Infof("started refresh submodules")
 

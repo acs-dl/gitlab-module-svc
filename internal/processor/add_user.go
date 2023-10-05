@@ -23,6 +23,9 @@ func (p *processor) validateAddUser(msg data.ModulePayload) error {
 	}.Filter()
 }
 
+// HandleAddUserAction .Wrap from return err was removed because
+// errors must be human-readable from very low level to send them in FE.
+// log must be put before every error to track it if any
 func (p *processor) HandleAddUserAction(msg data.ModulePayload) error {
 	log := p.log.WithField("message", msg.RequestId)
 	log.Infof("start handling add user action")

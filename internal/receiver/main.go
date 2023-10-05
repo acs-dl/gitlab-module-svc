@@ -42,6 +42,13 @@ type Receiver struct {
 	runnerDelay time.Duration
 }
 
+// handleActions is a map string => function handler that handles actions from
+// requests caught by receiver from AMQP.
+// Worth to note that all these handlers must return human-readable and meaningful
+// errors, because they will be sent to FE part and displayed to the users. Due to this
+// requirement almost all errors are returned without `.Wrap` or even created anew.
+// It's important to put meaningful log before error is returned to have ability to trace
+// error at least by it.
 var handleActions = map[string]func(r *Receiver, msg data.ModulePayload) error{
 	AddUserAction: func(r *Receiver, msg data.ModulePayload) error {
 		return r.processor.HandleAddUserAction(msg)
